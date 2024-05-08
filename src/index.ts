@@ -14,6 +14,7 @@ export interface Config {
     dinnerText: string
     snacksText: string
     drinkText: string
+    botMenuText: string
     enabledReminderToEat: boolean
     breakfastTime?: string
     lunchTime?: string
@@ -28,6 +29,7 @@ export const Config: Schema<Config> = Schema.intersect([
         dinnerText: Schema.string().default('你的晚饭就吃[food]吧').description('晚饭抽取文本'),
         snacksText: Schema.string().default('你的零食就吃[food]吧').description('零食抽取文本'),
         drinkText: Schema.string().default('你的饮料就喝[food]吧').description('饮料抽取文本'),
+        botMenuText: Schema.string().default('我没有菜单...').description('机器人被查看菜单艾特时的回复'),
     }),
     Schema.object({
         enabledReminderToEat: Schema.boolean().default(false)
@@ -262,10 +264,10 @@ export function apply(ctx: Context, config: Config) {
             const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType }));
             if(foodMenu.data.length === 0)
                 if(foodType === 'lunch' && (await ctx.database.get('userFoodMenu', { uid, foodType: 'dinner' })).length !== 0)
-                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的...但是你有晚饭菜单，用指令\n吃什么.复制.晚饭 午饭\n来复制晚饭菜单到午饭菜单';
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的...\n但是你有晚饭菜单\n用指令\n吃什么.复制.午饭 晚饭\n来复制晚饭菜单到午饭菜单';
                 else if(foodType === 'dinner' && (await ctx.database.get('userFoodMenu', { uid, foodType: 'lunch' })).length !== 0)
-                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的...但是你有午饭菜单，用指令\n吃什么.复制.午饭 晚饭\n来复制午饭菜单到晚饭菜单';
-                else return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的...用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单`;
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的...\n但是你有午饭菜单\n用指令\n吃什么.复制.晚饭 午饭\n来复制午饭菜单到晚饭菜单';
+                else return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的...\n用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单`;
             const foodName = foodMenu.draw();
             if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
             else return (config.atTheUser?h.at(session.userId) + ' ': '') + foodTypeText[foodType].returnText.replace('[food]', foodName);
@@ -351,9 +353,10 @@ export function apply(ctx: Context, config: Config) {
     })
 
     ctx.command('吃什么.查看').alias('.菜单')
-    .action(async ({ session }, message) => {
+    .action(async ({ args, session }) => {
         const { uid } = session;
-        if(message === undefined) {
+        const wrongCommandwarning = (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 查看\n吃什么 查看 早饭/午饭/晚饭/零食/饮料\n吃什么 查看 @用户\n吃什么 查看 @用户 早饭/午饭/晚饭/零食/饮料';
+        if(args[0] === undefined) {
             if((await ctx.database.get('userFoodMenu', { uid })).length === 0) {
                 return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单是空的，用指令\n吃什么.添加.早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n来添加菜单';
             }
@@ -361,20 +364,57 @@ export function apply(ctx: Context, config: Config) {
                 return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单如下：' + await (new FoodMenu()).showMenu(uid);
             }
         }
-        else if( foodTypes.includes(message as foodType) ) {
-            const foodType: foodType = message as foodType;
-            const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType }));
-            if(foodMenu.data.length === 0)
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的，用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单`;
-            else
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '菜单如下：' + await foodMenu.showSingleMenu(uid, foodType);
+        else if( foodTypes.includes(args[0] as foodType) ) {
+            const foodType: foodType = args[0] as foodType;
+            if(h.select(args[1],'at').length === 1) {
+                session.execute('吃什么 查看 ' + args[1] + ' ' + foodType);
+            }
+            else{
+                const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType }));
+                if(foodMenu.data.length === 0)
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的，用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单`;
+                else
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '菜单如下：' + await foodMenu.showSingleMenu(uid, foodType);
+            }
         }
-        else if(message === '早饭') session.execute('吃什么 查看 breakfast');
-        else if(message === '午饭') session.execute('吃什么 查看 lunch');
-        else if(message === '晚饭') session.execute('吃什么 查看 dinner');
-        else if(message === '零食') session.execute('吃什么 查看 snacks');
-        else if(message === '饮料') session.execute('吃什么 查看 drink');
-        else return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 查看 早饭/午饭/晚饭/零食/饮料';
+        else if(h.select(args[0],'at').length === 1) {
+            const atId = h.select(args[0],'at')[0].attrs.id;
+            if(args[1] === undefined) {
+                if(atId === session.userId) {
+                    session.execute('吃什么.查看');
+                }
+                else if(atId === session.selfId) {
+                    return config.botMenuText;
+                }
+                else {
+                    if((await ctx.database.get('userFoodMenu', { uid: session.platform + ':' + atId })).length === 0) {
+                        return '对方的菜单是空的...';
+                    }
+                    else 
+                        return '对方的菜单如下：' + await (new FoodMenu()).showMenu(session.platform + ':' + atId);
+                }
+            }
+            else if( foodTypes.includes(args[1] as foodType) ) {
+                const foodType: foodType = args[1] as foodType;
+                const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.platform + ':' + atId, foodType }));
+                if(foodMenu.data.length === 0)
+                    return '对方的' + foodTypeText[foodType].name + '菜单是空的...';
+                else
+                    return '对方的' + foodTypeText[foodType].name + '菜单如下：' + await foodMenu.showSingleMenu(session.platform + ':' + atId, foodType);
+            }
+            else if(args[1] === '早饭') session.execute('吃什么 查看 ' + args[0] + ' breakfast');
+            else if(args[1] === '午饭') session.execute('吃什么 查看 ' + args[0] + ' lunch');
+            else if(args[1] === '晚饭') session.execute('吃什么 查看 ' + args[0] + ' dinner');
+            else if(args[1] === '零食') session.execute('吃什么 查看 ' + args[0] + ' snacks');
+            else if(args[1] === '饮料') session.execute('吃什么 查看 ' + args[0] + ' drink');
+            else return wrongCommandwarning;
+        }
+        else if(args[0] === '早饭') session.execute('吃什么 查看 breakfast' + (args[1] === undefined? '': ' ' + args[1]));
+        else if(args[0] === '午饭') session.execute('吃什么 查看 lunch' + (args[1] === undefined? '': ' ' + args[1]));
+        else if(args[0] === '晚饭') session.execute('吃什么 查看 dinner' + (args[1] === undefined? '': ' ' + args[1]));
+        else if(args[0] === '零食') session.execute('吃什么 查看 snacks' + (args[1] === undefined? '': ' ' + args[1]));
+        else if(args[0] === '饮料') session.execute('吃什么 查看 drink' + (args[1] === undefined? '': ' ' + args[1]));
+        else return wrongCommandwarning;
     })
 
     ctx.command('吃什么.删除').alias('.删除').action(async ({ args, session }) => {
@@ -389,7 +429,7 @@ export function apply(ctx: Context, config: Config) {
                 returnMessage += (config.atTheUser?h.at(session.userId) + ' ': '') + '删除' + foodName + '成功！\n';
             }
         })
-        return returnMessage;
+        return returnMessage + '你的菜单如下：' + await (new FoodMenu()).showMenu(uid);;
     })
 
     ctx.command('吃什么.复制').alias('拷贝', 'copy')
@@ -411,7 +451,8 @@ export function apply(ctx: Context, config: Config) {
                     const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: targetUid, foodType }));
                     await ctx.database.remove('userFoodMenu', { uid, foodType });
                     await ctx.database.upsert('userFoodMenu', foodMenu.data);
-                    return (config.atTheUser?h.at(session.userId) + ' ': '') + `从 ${args[1]} 复制${foodTypeText[foodType].name}菜单成功！`;
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + `从 ${args[1]} 复制${foodTypeText[foodType].name}菜单成功！` +
+                    `你的${foodTypeText[foodType].name}菜单如下：` + await (new FoodMenu()).showSingleMenu(uid, foodType);
                 }
                 //吃什么.复制 菜单名 菜单名 时
                 else if( foodTypes.includes(args[1] as foodType) ) {
@@ -419,7 +460,8 @@ export function apply(ctx: Context, config: Config) {
                     const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType: targetFoodType }));
                     await ctx.database.remove('userFoodMenu', { uid, foodType });
                     await ctx.database.upsert('userFoodMenu', foodMenu.data);
-                    return (config.atTheUser?h.at(session.userId) + ' ': '') + `从${foodTypeText[targetFoodType].name}复制到${foodTypeText[foodType].name}菜单成功！`;
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + `从${foodTypeText[targetFoodType].name}菜单复制到${foodTypeText[foodType].name}菜单成功！` +
+                    `你的${foodTypeText[foodType].name}菜单如下：` + await (new FoodMenu()).showSingleMenu(uid, foodType);
                 }
                 else if( args[1] === '早饭') session.execute('吃什么 复制 ' + foodType + ' breakfast');
                 else if( args[1] === '午饭') session.execute('吃什么 复制 ' + foodType + ' lunch');
@@ -436,7 +478,8 @@ export function apply(ctx: Context, config: Config) {
                 const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: targetUid }));
                 await ctx.database.remove('userFoodMenu', { uid });
                 await ctx.database.upsert('userFoodMenu', foodMenu.data);
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + `从 ${args[0]} 复制菜单成功！`;
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + `从 ${args[0]} 复制菜单成功！` +
+                `你的菜单如下：` + await (new FoodMenu()).showMenu(uid);
             }
             else if( foodTypes.includes(args[1] as foodType) ) {
                 session.execute('吃什么 复制 ' + args[1] + ' ' + args[0]);
