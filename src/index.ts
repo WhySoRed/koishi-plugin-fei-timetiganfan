@@ -294,6 +294,9 @@ export function apply(ctx: Context, config: Config) {
             return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 添加 早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n可以在食物名后面加上(数字)表示权重如\n吃什么 添加 早饭 面包(2) 鸡蛋(1)';
         }
         else if(args[0] === '早饭' || args[0] === '午饭' || args[0] === '晚饭' || args[0] === '零食' || args[0] === '饮料') {
+            if(args.length === 1) {
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 添加 早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n可以在食物名后面加上(数字)表示权重如\n吃什么 添加 早饭 面包(2) 鸡蛋(1)';
+            }
             const uid = session.uid;
             const foodType: foodType = Object.keys(foodTypeText).find(key => foodTypeText[key].name === args[0]) as foodType;
             const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType }));
