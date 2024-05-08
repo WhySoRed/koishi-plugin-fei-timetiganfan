@@ -50,11 +50,13 @@ declare module 'koishi' {
         userFoodMenu : UserFoodMenu
     }
 }
-  
+
+type foodType = "breakfast" | "lunch" | "dinner" | "snacks" | "drink";
+
 export interface UserFoodMenu {
     uid: string
     foodName: string
-    type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink"
+    foodType: foodType
     weigth: number
 }
 
@@ -67,10 +69,10 @@ export function apply(ctx: Context, config: Config) {
     ctx.model.extend('userFoodMenu', {
         uid: { type :"string", nullable: false },
         foodName: { type :"string", nullable: false },
-        type: { type :"string", nullable: false },
+        foodType: { type :"string", nullable: false },
         weigth: { type :"double", nullable: false },
     },{
-        primary: ['uid', 'foodName', 'type']
+        primary: ['uid', 'foodName', 'foodType']
     })
 
     //当应用启动时设定定时提醒
@@ -121,7 +123,7 @@ export function apply(ctx: Context, config: Config) {
             const foodAddWeightList:{[foodName:string]:number} = {};
             if(Array.isArray(userFoodMenu)) {
                 userFoodMenu.forEach(item => {
-                    const index = this.data.findIndex(i => i.uid === item.uid && i.foodName === item.foodName && i.type === item.type);
+                    const index = this.data.findIndex(i => i.uid === item.uid && i.foodName === item.foodName && i.foodType === item.foodType);
                     if(~index) {
                         this.data[index].weigth += item.weigth;
                         foodAddWeightList[item.foodName] = item.weigth;
@@ -137,9 +139,9 @@ export function apply(ctx: Context, config: Config) {
             }
             return foodAddWeightList;
         }
-        
+
         //将输入的参数数组转换为一个UserFoodMenu数组
-        parse(uid: string, type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink", ...args: string[]) {
+        parse(uid: string, foodType: foodType, ...args: string[]) {
             const foodMenuArr:Array<UserFoodMenu> = [];
             if(args.find(async userInput => {
                 const foodNameWithWigth = userInput.replace('（','(').replace('）',')');  //把中文括号转换为英文
@@ -153,14 +155,14 @@ export function apply(ctx: Context, config: Config) {
                     const foodNameWithWigth = userInput.replace('（','(').replace('）',')');
                     const foodName = foodNameWithWigth.replace(/(.+)\(.+\)$/, '$1');
                     const weigth = Number(foodNameWithWigth.replace(/.+(\(.+\))$/, '$1').replace('(','').replace(')',''));
-                    foodMenuArr.push(new UserFoodMenu(uid, foodName, type, weigth));
+                    foodMenuArr.push(new UserFoodMenu(uid, foodName, foodType, weigth));
                 })
             }
             return foodMenuArr;
         }
 
-        parseAndAdd(uid: string, type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink", ...args: string[]) {
-            return this.add(this.parse(uid, type, ...args));
+        parseAndAdd(uid: string, foodType: foodType, ...args: string[]) {
+            return this.add(this.parse(uid, foodType, ...args));
         }
         
         //根据权重从菜单中抽取一个
@@ -192,13 +194,13 @@ export function apply(ctx: Context, config: Config) {
     class UserFoodMenu {
         uid: string
         foodName: string
-        type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink"
+        foodType: foodType
         weigth: number = 1;     //权重(必须大于0)
 
-        constructor(uid: string, foodName: string, type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink", weigth? : number ) {
+        constructor(uid: string, foodName: string, foodType: foodType, weigth? : number ) {
             this.uid = uid;
             this.foodName = foodName;
-            this.type = type;
+            this.foodType = foodType;
             if(weigth) {
                 if(weigth < 0) {
                     throw new Error('权重不能小于0...');
@@ -208,73 +210,55 @@ export function apply(ctx: Context, config: Config) {
         }
     }
 
+    const foodTypeText:{[key in foodType]: {name: string, returnText: string}} = {
+        'breakfast' : {name: '早饭', returnText: config.breakfastText},
+        'lunch' : {name: '午饭', returnText: config.lunchText},
+        'dinner' : {name: '晚饭', returnText: config.dinnerText},
+        'snacks' : {name: '零食', returnText: config.snacksText},
+        'drink' : {name: '饮料', returnText: config.drinkText},
+    }
+
     ctx.command('吃什么', '这顿该吃啥？').alias('吃啥')
     .action(async ({ session }, message) => {
         if(message === undefined) {
             const hour = new Date().getHours();
             if(4 <= hour && hour < 11)
-                session.execute('吃什么.早饭');
+                session.execute('吃什么 早饭');
             else if(11 <= hour && hour < 16)
-                session.execute('吃什么.午饭');
+                session.execute('吃什么 午饭');
             else 
-                session.execute('吃什么.晚饭');
+                session.execute('吃什么 晚饭');
+        }
+        else if(message === '早饭' || message === '午饭' || message === '晚饭' || message === '零食' || message === '饮料') {
+            const uid = session.uid;
+            const foodType: foodType = Object.keys(foodTypeText).find(key => foodTypeText[key].name === message) as foodType;
+            const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType }));
+            if(foodMenu.data.length === 0)
+                if(foodType === 'lunch' && (await ctx.database.get('userFoodMenu', { uid, foodType: 'dinner' })).length !== 0)
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的，但是你有晚饭菜单，用指令\n吃什么.复制.晚饭 午饭\n来复制晚饭菜单到午饭菜单';
+                else if(foodType === 'dinner' && (await ctx.database.get('userFoodMenu', { uid, foodType: 'lunch' })).length !== 0)
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的，但是你有午饭菜单，用指令\n吃什么.复制.午饭 晚饭\n来复制午饭菜单到晚饭菜单';
+                else return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的，用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单`;
+            const foodName = foodMenu.draw();
+            if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
+            else return (config.atTheUser?h.at(session.userId) + ' ': '') + foodTypeText[foodType].returnText.replace('[food]', foodName);
         }
     })
 
-    ctx.command('吃什么.早饭').alias('.早餐', '早饭吃什么', '早饭吃啥')
-    .action(async ({ session }) => {
-        const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'breakfast' }));
-        if(foodMenu.data.length === 0) 
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的早饭菜单是空的，用指令\n吃什么.添加.早饭 食物名1 食物名2 ...\n来添加菜单';
-        const foodName = foodMenu.draw();
-        if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
-        else return (config.atTheUser?h.at(session.userId) + ' ': '') + config.breakfastText.replace('[food]', foodName);
+    ctx.command('吃什么.早饭').alias('.早餐', '早饭吃什么', '早饭吃啥').action(async ({ session }) => {
+        session.execute('吃什么 早饭');
     })
-
-    ctx.command('吃什么.午饭').alias('.午餐', '午饭吃什么', '午饭吃啥', '吃什么午饭')
-    .action(async ({ session }) => {
-        const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'lunch' }));
-        if(foodMenu.data.length === 0) {
-            if((await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'dinner' })).length !== 0)
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的，但是你有晚饭菜单，用指令\n吃什么.复制.晚饭 午饭\n来复制晚饭菜单到午饭菜单';
-            else 
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的，用指令\n吃什么.添加.午饭 食物名1 食物名2 ...\n来添加菜单';
-        }
-        const foodName = foodMenu.draw();
-        if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
-        else return (config.atTheUser?h.at(session.userId) + ' ': '') + config.lunchText.replace('[food]', foodName);
+    ctx.command('吃什么.午饭').alias('.午餐', '午饭吃什么', '午饭吃啥', '吃什么午饭').action(async ({ session }) => {
+        session.execute('吃什么 午饭');
     })
-
-    ctx.command('吃什么.晚饭').alias('.晚餐', '晚饭吃什么', '晚饭吃啥', '吃什么晚饭')
-    .action(async ({ session }) => {
-        const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'dinner' }));
-        if(foodMenu.data.length === 0) {
-            if((await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'lunch' })).length !== 0)
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的，但是你有午饭菜单，用指令\n吃什么.复制.午饭 晚饭\n来复制午饭菜单到晚饭菜单';
-            else 
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的，用指令\n吃什么.添加.晚饭 食物名1 食物名2 ...\n来添加菜单';
-        }
-        const foodName = foodMenu.draw();
-        if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
-        else return (config.atTheUser?h.at(session.userId) + ' ': '') + config.dinnerText.replace('[food]', foodName);
+    ctx.command('吃什么.晚饭').alias('.晚餐', '晚饭吃什么', '晚饭吃啥', '吃什么晚饭').action(async ({ session }) => {
+        session.execute('吃什么 晚饭');
     })
-
-    ctx.command('吃什么.零食').alias('.零食', '.小吃', '吃什么零食')
-    .action(async ({ session }) => {
-        const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'snacks' }));
-        if(foodMenu.data.length === 0) 
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的零食单是空的，用指令\n吃什么.添加.零食 食物名1 食物名2 ...\n来添加菜单';
-        const foodName = foodMenu.draw();
-        if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
+    ctx.command('吃什么.零食').alias('.零食', '.小吃', '吃什么零食').action(async ({ session }) => {
+        session.execute('吃什么 零食');
     })
-
-    ctx.command('吃什么.饮料').alias('.饮料', '喝什么', '喝什么饮料')
-    .action(async ({ session }) => {
-        const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'drink' }));
-        if(foodMenu.data.length === 0) 
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的饮料单是空的，用指令\n吃什么.添加.饮料 食物名1 食物名2 ...\n来添加菜单';
-        const foodName = foodMenu.draw();
-        if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
+    ctx.command('吃什么.饮料').alias('.饮料', '喝什么', '喝什么饮料').action(async ({ session }) => {
+        session.execute('吃什么 饮料');
     })
 
     ctx.command('吃什么.查看').alias('.菜单')
@@ -289,20 +273,24 @@ export function apply(ctx: Context, config: Config) {
                 if(sameWeigth) return arr.map(item => item.foodName).join('，');
                 else return arr.map(item => item.foodName + '(' + item.weigth + ')').join('，');
             }
-            async function showMenu(type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink") {
+            async function showSingleMenu(foodType: foodType) {
                 //select的grouBy方法在单参数时会返回一个元素为 {key:value} 的不重复数组
-                const weigthGroup = (await ctx.database.select('userFoodMenu').where({ uid, type }).groupBy('weigth').execute())
+                const weigthGroup = (await ctx.database.select('userFoodMenu').where({ uid, foodType }).groupBy('weigth').execute())
                 const sameWeigth = weigthGroup.length > 1
-                const menu = await ctx.database.get('userFoodMenu', { uid, type });
-                if(menu.length === 0) return '';
-                else return '\n' + type + '：' + addWeigth(sameWeigth, menu);
+                const menu = await ctx.database.get('userFoodMenu', { uid, foodType });
+                if(menu.length === 0) return '';    
+                else return '\n' + foodType + '：' + addWeigth(sameWeigth, menu);
             }
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单如下：' +
-                    await showMenu('breakfast') + 
-                    await showMenu('lunch') + 
-                    await showMenu('dinner') + 
-                    await showMenu('snacks') + 
-                    await showMenu('drink');
+            async function showMenu() {
+                const foodTypeArr = (await ctx.database.select('userFoodMenu').where({ uid }).groupBy('foodType').execute())
+                                .map(item => item.foodType);
+                let returnMessage = '';
+                foodTypeArr.forEach(async foodType => {
+                    returnMessage += await showSingleMenu(foodType);
+                })
+                return returnMessage;
+            }
+            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单如下：' + await showMenu();
         }
     })
 
