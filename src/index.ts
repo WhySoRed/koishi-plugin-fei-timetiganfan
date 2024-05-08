@@ -116,24 +116,54 @@ export function apply(ctx: Context, config: Config) {
     })
     class FoodMenu {
         data:Array<UserFoodMenu> = [];
-        //添加菜单
+        //添加菜单， 返回值是在原本在菜单上但权重增加的{食物:增加权重}的键值对
         add(userFoodMenu: UserFoodMenu | Array<UserFoodMenu>) {
+            const foodAddWeightList:{[foodName:string]:number} = {};
             if(Array.isArray(userFoodMenu)) {
                 userFoodMenu.forEach(item => {
                     const index = this.data.findIndex(i => i.uid === item.uid && i.foodName === item.foodName && i.type === item.type);
                     if(~index) {
                         this.data[index].weigth += item.weigth;
+                        foodAddWeightList[item.foodName] = item.weigth;
                     }
                     else {
                         this.data.push(item);
+
                     }
                 })
             }
             else {
                 this.data.push(userFoodMenu);
             }
+            return foodAddWeightList;
         }
-        //从菜单中抽取一个
+        
+        //将输入的参数数组转换为一个UserFoodMenu数组
+        parse(uid: string, type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink", ...args: string[]) {
+            const foodMenuArr:Array<UserFoodMenu> = [];
+            if(args.find(async userInput => {
+                const foodNameWithWigth = userInput.replace('（','(').replace('）',')');  //把中文括号转换为英文
+                return !/(.+)\((\d+)\)$/.test(foodNameWithWigth) &&
+                !/(.+)\((\d+\.\d+)\)$/.test(foodNameWithWigth) &&
+                !/(.+)\((\.\d+)\)$/.test(foodNameWithWigth) &&
+                !/[^()]/.test(foodNameWithWigth);
+            })) throw new Error('参数格式错误！应为 食物名1(权重) 食物名2(权重) ...\n权重需要放在括号内，可以不写但不能小于0');
+            else {
+                args.forEach(userInput => {
+                    const foodNameWithWigth = userInput.replace('（','(').replace('）',')');
+                    const foodName = foodNameWithWigth.replace(/(.+)\(.+\)$/, '$1');
+                    const weigth = Number(foodNameWithWigth.replace(/.+(\(.+\))$/, '$1').replace('(','').replace(')',''));
+                    foodMenuArr.push(new UserFoodMenu(uid, foodName, type, weigth));
+                })
+            }
+            return foodMenuArr;
+        }
+
+        parseAndAdd(uid: string, type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink", ...args: string[]) {
+            return this.add(this.parse(uid, type, ...args));
+        }
+        
+        //根据权重从菜单中抽取一个
         draw() {
             const totalWeigth = this.data.reduce((prev, cur) => prev + cur.weigth, 0);
             const random = Math.random() * totalWeigth;
@@ -147,6 +177,8 @@ export function apply(ctx: Context, config: Config) {
             return null;
         }
 
+        //实际上因为构造时传入的参数是ctx.database的返回值，是一个视为数组使用的FlatPick<UserFoodMenu>
+        //因此传入类型应该不会是单个食物的UserFoodMenu...
         constructor(userFoodMenu: UserFoodMenu | Array<UserFoodMenu>) {
             if(Array.isArray(userFoodMenu)) {
                 this.data = userFoodMenu;
@@ -162,13 +194,14 @@ export function apply(ctx: Context, config: Config) {
         foodName: string
         type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink"
         weigth: number = 1;     //权重(必须大于0)
+
         constructor(uid: string, foodName: string, type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink", weigth? : number ) {
             this.uid = uid;
             this.foodName = foodName;
             this.type = type;
             if(weigth) {
-                if(weigth <= 0) {
-                    throw new Error('权重必须大于0...');
+                if(weigth < 0) {
+                    throw new Error('权重不能小于0...');
                 }
                 this.weigth = weigth;
             }
@@ -192,7 +225,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }) => {
         const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'breakfast' }));
         if(foodMenu.data.length === 0) 
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的早饭菜单是空的，用指令 吃什么.添加.早饭 [食物名1] [食物名2] ... 来添加菜单';
+            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的早饭菜单是空的，用指令\n吃什么.添加.早饭 食物名1 食物名2 ...\n来添加菜单';
         const foodName = foodMenu.draw();
         if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
         else return (config.atTheUser?h.at(session.userId) + ' ': '') + config.breakfastText.replace('[food]', foodName);
@@ -203,9 +236,9 @@ export function apply(ctx: Context, config: Config) {
         const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'lunch' }));
         if(foodMenu.data.length === 0) {
             if((await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'dinner' })).length !== 0)
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的，但是你有晚饭菜单，用指令 吃什么.复制.晚饭 午饭 来复制晚饭菜单到午饭菜单';
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的，但是你有晚饭菜单，用指令\n吃什么.复制.晚饭 午饭\n来复制晚饭菜单到午饭菜单';
             else 
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的，用指令\n吃什么.添加.午饭 [食物名1] [食物名2] ... 来添加菜单';
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的，用指令\n吃什么.添加.午饭 食物名1 食物名2 ...\n来添加菜单';
         }
         const foodName = foodMenu.draw();
         if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
@@ -217,9 +250,9 @@ export function apply(ctx: Context, config: Config) {
         const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'dinner' }));
         if(foodMenu.data.length === 0) {
             if((await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'lunch' })).length !== 0)
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的，但是你有午饭菜单，用指令 吃什么.复制.午饭 晚饭 来复制午饭菜单到晚饭菜单';
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的，但是你有午饭菜单，用指令\n吃什么.复制.午饭 晚饭\n来复制午饭菜单到晚饭菜单';
             else 
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的，用指令\n吃什么.添加.晚饭 [食物名1] [食物名2] ... 来添加菜单';
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的，用指令\n吃什么.添加.晚饭 食物名1 食物名2 ...\n来添加菜单';
         }
         const foodName = foodMenu.draw();
         if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
@@ -230,7 +263,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }) => {
         const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'snacks' }));
         if(foodMenu.data.length === 0) 
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的零食单是空的，用指令 吃什么.添加.零食 [食物名1] [食物名2] ... 来添加菜单';
+            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的零食单是空的，用指令\n吃什么.添加.零食 食物名1 食物名2 ...\n来添加菜单';
         const foodName = foodMenu.draw();
         if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
     })
@@ -239,7 +272,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }) => {
         const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: session.uid, type: 'drink' }));
         if(foodMenu.data.length === 0) 
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的饮料单是空的，用指令 吃什么.添加.饮料 [食物名1] [食物名2] ... 来添加菜单';
+            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的饮料单是空的，用指令\n吃什么.添加.饮料 食物名1 食物名2 ...\n来添加菜单';
         const foodName = foodMenu.draw();
         if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
     })
@@ -248,7 +281,7 @@ export function apply(ctx: Context, config: Config) {
     .action(async ({ session }) => {
         const { uid } = session;
         if((await ctx.database.get('userFoodMenu', { uid })).length === 0) {
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单是空的，用指令 吃什么.添加.早饭/午饭/晚饭/零食/饮料 [食物名1] [食物名2] ... 来添加菜单';
+            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单是空的，用指令\n吃什么.添加.早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n来添加菜单';
         }
         else {
              //该菜单食物权重相同则不显示权重
@@ -256,21 +289,20 @@ export function apply(ctx: Context, config: Config) {
                 if(sameWeigth) return arr.map(item => item.foodName).join('，');
                 else return arr.map(item => item.foodName + '(' + item.weigth + ')').join('，');
             }
-            async function transMenu(type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink") {
+            async function showMenu(type: "breakfast" | "lunch" | "dinner" | "snacks" | "drink") {
+                //select的grouBy方法在单参数时会返回一个元素为 {key:value} 的不重复数组
                 const weigthGroup = (await ctx.database.select('userFoodMenu').where({ uid, type }).groupBy('weigth').execute())
                 const sameWeigth = weigthGroup.length > 1
                 const menu = await ctx.database.get('userFoodMenu', { uid, type });
                 if(menu.length === 0) return '';
                 else return '\n' + type + '：' + addWeigth(sameWeigth, menu);
             }
-            const breakfastList = await transMenu('breakfast');
-            const lunchList = await transMenu('lunch');
-            const dinnerList = await transMenu('dinner');
-            const snacksList = await transMenu('snacks');
-            const drinkList = await transMenu('drink');
-
             return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单如下：' +
-                    breakfastList + lunchList + dinnerList + snacksList + drinkList;
+                    await showMenu('breakfast') + 
+                    await showMenu('lunch') + 
+                    await showMenu('dinner') + 
+                    await showMenu('snacks') + 
+                    await showMenu('drink');
         }
     })
 
@@ -285,7 +317,20 @@ export function apply(ctx: Context, config: Config) {
     ctx.command('吃什么.添加零食').alias('添加小吃', '零食添加')
     ctx.command('吃什么.添加饮料').alias('.添加喝的', '添加饮料', '饮料添加')
 
-    ctx.command('吃什么.删除').alias('.删除')
+    ctx.command('吃什么.删除').alias('.删除').action(async ({ args, session }) => {
+        const { uid } = session;
+        let returnMessage = '';
+        args.forEach(async (foodName) => {
+            if( (await ctx.database.get('userFoodMenu', { uid, foodName })).length === 0) {
+                returnMessage += (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单中没有' + foodName + '，删除失败！\n';
+            }
+            else {
+                await ctx.database.remove('userFoodMenu', { uid , foodName });
+                returnMessage += (config.atTheUser?h.at(session.userId) + ' ': '') + '删除' + foodName + '成功！\n';
+            }
+        })
+        return returnMessage;
+    })
 
     ctx.command('吃什么.复制')
 }
