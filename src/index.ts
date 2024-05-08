@@ -126,7 +126,10 @@ export function apply(ctx: Context, config: Config) {
                     const index = this.data.findIndex(i => i.uid === item.uid && i.foodName === item.foodName && i.foodType === item.foodType);
                     if(~index) {
                         this.data[index].weigth += item.weigth;
-                        foodAddWeightList[item.foodName] = item.weigth;
+                        if(foodAddWeightList[item.foodName] === undefined) 
+                            foodAddWeightList[item.foodName] = item.weigth;
+                        else
+                            foodAddWeightList[item.foodName] += item.weigth;
                     }
                     else {
                         this.data.push(item);
@@ -179,9 +182,32 @@ export function apply(ctx: Context, config: Config) {
             return null;
         }
 
+        //该菜单食物权重相同则不显示权重
+        async showSingleMenu(uid: string, foodType: foodType) {
+            //select的grouBy方法在单参数时会返回一个元素为 {key:value} 的不重复数组
+            const weigthGroup = (await ctx.database.select('userFoodMenu').where({ uid, foodType }).groupBy('weigth').execute())
+            const sameWeigth = weigthGroup.length > 1
+            const menu = await ctx.database.get('userFoodMenu', { uid, foodType });
+            if(menu.length === 0) return '';    
+            else if(sameWeigth)
+                return '\n当前' + foodTypeText[foodType].name + '菜单： ' + menu.map(item => item.foodName).join('，');
+            else
+                return '\n当前' + foodTypeText[foodType].name + '菜单： ' + menu.map(item => item.foodName + '(' + item.weigth + ')').join('，');
+        }
+
+        async showMenu(uid: string) {
+            const foodTypeArr = (await ctx.database.select('userFoodMenu').where({ uid }).groupBy('foodType').execute())
+                            .map(item => item.foodType);
+            let menuMessage = '';
+            foodTypeArr.forEach(async foodType => {
+                menuMessage += await this.showSingleMenu(uid, foodType);
+            })
+            return menuMessage;
+        }
+
         //实际上因为构造时传入的参数是ctx.database的返回值，是一个视为数组使用的FlatPick<UserFoodMenu>
         //因此传入类型应该不会是单个食物的UserFoodMenu...
-        constructor(userFoodMenu: UserFoodMenu | Array<UserFoodMenu>) {
+        constructor(userFoodMenu?: UserFoodMenu | Array<UserFoodMenu>) {
             if(Array.isArray(userFoodMenu)) {
                 this.data = userFoodMenu;
             }
@@ -271,8 +297,14 @@ export function apply(ctx: Context, config: Config) {
             const uid = session.uid;
             const foodType: foodType = Object.keys(foodTypeText).find(key => foodTypeText[key].name === args[0]) as foodType;
             const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType }));
-            foodMenu.parseAndAdd(uid, foodType, ...args.slice(1));
+            const addWeigthList = foodMenu.parseAndAdd(uid, foodType, ...args.slice(1));
             await ctx.database.upsert('userFoodMenu', foodMenu.data);
+
+            let returnMessage = (config.atTheUser?h.at(session.userId) + ' ': '') + `已添加${foodTypeText[foodType].name}菜单\n`;
+            if(Object.keys(addWeigthList).length !== 0) 
+                returnMessage += '以下食物权重增加：\n' + Object.keys(addWeigthList).map(foodName => foodName + '(' + addWeigthList[foodName] + ')').join('，');
+            returnMessage += '\n' + await foodMenu.showSingleMenu(uid, foodType);
+            return returnMessage;
         }
         
     })
@@ -292,7 +324,7 @@ export function apply(ctx: Context, config: Config) {
     ctx.command('吃什么.添加饮料').alias('.添加喝的', '添加饮料', '饮料添加').action(async ({ args, session }) => {
         session.execute('吃什么 添加 饮料 ' + args.join(' '));
     })
-    
+
     ctx.command('吃什么.查看').alias('.菜单')
     .action(async ({ session }) => {
         const { uid } = session;
@@ -300,29 +332,7 @@ export function apply(ctx: Context, config: Config) {
             return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单是空的，用指令\n吃什么.添加.早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n来添加菜单';
         }
         else {
-             //该菜单食物权重相同则不显示权重
-            async function addWeigth(sameWeigth:boolean, arr:Array<UserFoodMenu>) {
-                if(sameWeigth) return arr.map(item => item.foodName).join('，');
-                else return arr.map(item => item.foodName + '(' + item.weigth + ')').join('，');
-            }
-            async function showSingleMenu(foodType: foodType) {
-                //select的grouBy方法在单参数时会返回一个元素为 {key:value} 的不重复数组
-                const weigthGroup = (await ctx.database.select('userFoodMenu').where({ uid, foodType }).groupBy('weigth').execute())
-                const sameWeigth = weigthGroup.length > 1
-                const menu = await ctx.database.get('userFoodMenu', { uid, foodType });
-                if(menu.length === 0) return '';    
-                else return '\n' + foodType + '：' + addWeigth(sameWeigth, menu);
-            }
-            async function showMenu() {
-                const foodTypeArr = (await ctx.database.select('userFoodMenu').where({ uid }).groupBy('foodType').execute())
-                                .map(item => item.foodType);
-                let returnMessage = '';
-                foodTypeArr.forEach(async foodType => {
-                    returnMessage += await showSingleMenu(foodType);
-                })
-                return returnMessage;
-            }
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单如下：' + await showMenu();
+            return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单如下：' + await new FoodMenu().showMenu(uid);
         }
     })
 
@@ -344,13 +354,13 @@ export function apply(ctx: Context, config: Config) {
     ctx.command('吃什么.复制').alias('拷贝', 'copy')
     .action(async ({ args, session }) => {
         const uid = session.uid;
-        const wrongCommandText = (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 复制 @别人 \n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料 @别人\n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料 菜单名';
+        const wrongCommandwarning = (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 复制 @别人 \n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料 @别人\n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料 菜单名';
         if(args.length === 0) {
-            return wrongCommandText;
+            return wrongCommandwarning;
         }
         else if(args[0] === '早饭' || args[0] === '午饭' || args[0] === '晚饭' || args[0] === '零食' || args[0] === '饮料') {
             if(args[1] === undefined) {
-                return wrongCommandText;
+                return wrongCommandwarning;
             }
             else {
                 const foodType: foodType = Object.keys(foodTypeText).find(key => foodTypeText[key].name === args[0]) as foodType;
@@ -370,7 +380,7 @@ export function apply(ctx: Context, config: Config) {
                     await ctx.database.upsert('userFoodMenu', foodMenu.data);
                     return (config.atTheUser?h.at(session.userId) + ' ': '') + `从${foodTypeText[targetFoodType].name}复制到${foodTypeText[foodType].name}菜单成功！`;
                 }
-                else return wrongCommandText;
+                else return wrongCommandwarning;
             }
         }
         //吃什么.复制 @某人 时
@@ -381,7 +391,7 @@ export function apply(ctx: Context, config: Config) {
             await ctx.database.upsert('userFoodMenu', foodMenu.data);
             return (config.atTheUser?h.at(session.userId) + ' ': '') + `从 ${args[0]} 复制菜单成功！`;
         }
-        else return wrongCommandText;
+        else return wrongCommandwarning;
     })
 
     ctx.command('吃什么.复制.早饭').alias('.复制早餐', '复制早饭', '早饭复制').action(async ({ args, session }) => {
@@ -403,14 +413,14 @@ export function apply(ctx: Context, config: Config) {
     ctx.command('吃什么.清空').action(async ({ session }, message) => {
         const { uid } = session;
         if(message === undefined) {
-            session.send('不输入菜单名会视为清空全部菜单，你确定要清空所有菜单吗？如果确认要这么做，请在十五秒内输入“确认”');
+            session.send((config.atTheUser?h.at(session.userId) + ' ': '') + '不输入菜单名会视为清空全部菜单，你确定要清空所有菜单吗？如果确认要这么做，请在十五秒内输入“确认”');
             const confirm = await session.prompt(15000);
             if(confirm === '确认') {
                 await ctx.database.remove('userFoodMenu', { uid });
                 return (config.atTheUser?h.at(session.userId) + ' ': '') + '清空所有菜单成功！';
             }
             else {
-                return('没有输入确认，已取消清空');
+                return((config.atTheUser?h.at(session.userId) + ' ': '') + '没有输入确认，已取消清空');
             }
         }
         else if(message === '早饭' || message === '午饭' || message === '晚饭' || message === '零食' || message === '饮料') {
