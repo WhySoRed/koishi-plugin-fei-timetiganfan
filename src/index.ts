@@ -14,6 +14,7 @@ export interface Config {
     dinnerText: string
     snacksText: string
     drinkText: string
+    midnightText: string
     botMenuText: string
     enabledReminderToEat: boolean
     breakfastTime?: string
@@ -29,6 +30,7 @@ export const Config: Schema<Config> = Schema.intersect([
         dinnerText: Schema.string().default('你的晚饭就吃[food]吧').description('晚饭抽取文本'),
         snacksText: Schema.string().default('你的零食就吃[food]吧').description('零食抽取文本'),
         drinkText: Schema.string().default('你的饮料就喝[food]吧').description('饮料抽取文本'),
+        midnightText: Schema.string().default('你的夜宵就吃[food]吧').description('夜宵抽取文本'),
         botMenuText: Schema.string().default('我没有菜单...').description('机器人被查看菜单艾特时的回复'),
     }),
     Schema.object({
@@ -53,7 +55,7 @@ declare module 'koishi' {
     }
 }
 
-type foodType = "breakfast" | "lunch" | "dinner" | "snacks" | "drink";
+type foodType = "breakfast" | "lunch" | "dinner" | "snacks" | "drink" | "middlenight";
 
 export interface UserFoodMenu {
     uid: string
@@ -67,7 +69,7 @@ export const usage = `
 吃饭时间！
 `
 export function apply(ctx: Context, config: Config) {
-    const foodTypes: foodType[] = ["breakfast", "lunch", "dinner", "snacks", "drink"];
+    const foodTypes: foodType[] = ["breakfast", "lunch", "dinner", "snacks", "drink", "middlenight"];
 
     ctx.model.extend('userFoodMenu', {
         uid: { type :"string", nullable: false },
@@ -245,6 +247,7 @@ export function apply(ctx: Context, config: Config) {
         'dinner' : {name: '晚饭', returnText: config.dinnerText},
         'snacks' : {name: '零食', returnText: config.snacksText},
         'drink' : {name: '饮料', returnText: config.drinkText},
+        'middlenight' : {name: '夜宵', returnText: config.midnightText},
     }
 
     ctx.command('吃什么', '这顿该吃啥？').alias('吃啥')
@@ -277,43 +280,78 @@ export function apply(ctx: Context, config: Config) {
     ctx.command('吃什么.早饭').alias('.早餐', '早饭吃什么', '早饭吃啥').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 早饭 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) 
+            session.execute('吃什么.复制 早饭 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' )
+            session.execute('吃什么.查看 早饭' + args.slice(1).join(' '));
         else 
             session.execute('吃什么 breakfast');
     })
     ctx.command('吃什么.午饭').alias('.午餐', '午饭吃什么', '午饭吃啥', '吃什么午饭').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 午饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '复制' ) 
+            session.execute('吃什么.复制 午饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '菜单' )
+            session.execute('吃什么.查看 午饭' + args.slice(1).join(' '));
         else 
             session.execute('吃什么 lunch');
     })
     ctx.command('吃什么.晚饭').alias('.晚餐', '晚饭吃什么', '晚饭吃啥', '吃什么晚饭').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 晚饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '复制' ) 
+            session.execute('吃什么.复制 晚饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '菜单' )
+            session.execute('吃什么.查看 晚饭' + args.slice(1).join(' '));
         else 
             session.execute('吃什么 dinner');
     })
     ctx.command('吃什么.零食').alias('.零食', '.小吃', '吃什么零食').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 零食 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) 
+            session.execute('吃什么.复制 零食 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' )
+            session.execute('吃什么.查看 零食' + args.slice(1).join(' '));
         else 
             session.execute('吃什么 snacks');
     })
     ctx.command('吃什么.饮料').alias('.饮料', '喝什么', '喝什么饮料').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 饮料 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) 
+            session.execute('吃什么.复制 饮料 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' )
+            session.execute('吃什么.查看 饮料' + args.slice(1).join(' '));
         else 
             session.execute('吃什么 drink');
+    })
+
+    ctx.command('吃什么.夜宵').alias('.宵夜', '夜宵吃什么', '夜宵吃啥', '吃什么夜宵').action(async ({ args, session }) => {
+        if( args[0] === '添加' ) 
+            session.execute('吃什么.添加 夜宵 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) 
+            session.execute('吃什么.复制 夜宵 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' )
+            session.execute('吃什么.查看 夜宵' + args.slice(1).join(' '));
+        else 
+            session.execute('吃什么 middlenight');
     })
 
     
     ctx.command('吃什么.添加')
     .action(async ({ args, session }) => {
         if(args.length === 0) {
-            return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 添加 早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n可以在食物名后面加上(数字)表示权重如\n吃什么 添加 早饭 面包(2) 鸡蛋(1)';
+            return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 添加 早饭/午饭/晚饭/零食/饮料/夜宵 食物名1 食物名2 ...\n可以在食物名后面加上(数字)表示权重如\n吃什么 添加 早饭 面包(2) 鸡蛋(1)';
         }
         else if( foodTypes.includes(args[0] as foodType) ) {
             if(args.length === 1) {
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 添加 早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n可以在食物名后面加上(数字)表示权重如\n吃什么 添加 早饭 面包(2) 鸡蛋(1)';
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 添加 早饭/午饭/晚饭/零食/饮料/夜宵 食物名1 食物名2 ...\n可以在食物名后面加上(数字)表示权重如\n吃什么 添加 早饭 面包(2) 鸡蛋(1)';
+            }
+            if(args.length === 2 && args[1].includes('|') ) {
+                const foodNameArr = args[1].split('|');
+                session.execute('吃什么 添加 ' + args[0] + ' ' + foodNameArr.join(' '));
             }
             const uid = session.uid;
             const foodType: foodType = args[0] as foodType;
@@ -336,29 +374,32 @@ export function apply(ctx: Context, config: Config) {
         
     })
      //用于注册子指令以及起别名
-    ctx.command('吃什么.添加早饭').alias('.添加.早饭', '.添加早餐', '添加早饭', '早饭添加').action(async ({ args, session }) => {
+    ctx.command('吃什么.添加.早饭').alias('.添加早餐', '添加早饭', '早饭添加').action(async ({ args, session }) => {
         session.execute('吃什么 添加 breakfast ' + args.join(' '));
     })
-    ctx.command('吃什么.添加午饭').alias('.添加.午饭', '.添加午餐', '添加午饭', '午饭添加').action(async ({ args, session }) => {
+    ctx.command('吃什么.添加.午饭').alias('.添加午餐', '添加午饭', '午饭添加').action(async ({ args, session }) => {
         session.execute('吃什么 添加 lunch ' + args.join(' '));
     })
-    ctx.command('吃什么.添加晚饭').alias('.添加.晚饭', '.添加晚餐', '添加晚饭', '晚饭添加').action(async ({ args, session }) => {
+    ctx.command('吃什么.添加.晚饭').alias('.添加晚餐', '添加晚饭', '晚饭添加').action(async ({ args, session }) => {
         session.execute('吃什么 添加 dinner ' + args.join(' '));
     })
-    ctx.command('吃什么.添加零食').alias('.添加.零食', '添加小吃', '零食添加').action(async ({ args, session }) => {
+    ctx.command('吃什么.添加.零食').alias('添加小吃', '零食添加').action(async ({ args, session }) => {
         session.execute('吃什么 添加 snacks ' + args.join(' '));
     })
-    ctx.command('吃什么.添加饮料').alias('.添加.饮料', '.添加喝的', '添加饮料', '饮料添加').action(async ({ args, session }) => {
+    ctx.command('吃什么.添加.饮料').alias('.添加喝的', '添加饮料', '饮料添加').action(async ({ args, session }) => {
         session.execute('吃什么 添加 drink ' + args.join(' '));
+    })
+    ctx.command('吃什么.添加.夜宵').alias('添加宵夜', '夜宵添加').action(async ({ args, session }) => {
+        session.execute('吃什么 添加 middlenight ' + args.join(' '));
     })
 
     ctx.command('吃什么.查看').alias('.菜单')
     .action(async ({ args, session }) => {
         const { uid } = session;
-        const wrongCommandwarning = (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 查看\n吃什么 查看 早饭/午饭/晚饭/零食/饮料\n吃什么 查看 @用户\n吃什么 查看 @用户 早饭/午饭/晚饭/零食/饮料';
+        const wrongCommandwarning = (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 查看\n吃什么 查看 早饭/午饭/晚饭/零食/饮料/夜宵\n吃什么 查看 @用户\n吃什么 查看 @用户 早饭/午饭/晚饭/零食/饮料/夜宵';
         if(args[0] === undefined) {
             if((await ctx.database.get('userFoodMenu', { uid })).length === 0) {
-                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单是空的，用指令\n吃什么.添加.早饭/午饭/晚饭/零食/饮料 食物名1 食物名2 ...\n来添加菜单';
+                return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单是空的，用指令\n吃什么.添加.早饭/午饭/晚饭/零食/饮料/夜宵 食物名1 食物名2 ...\n来添加菜单';
             }
             else {
                 return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的菜单如下：' + await (new FoodMenu()).showMenu(uid);
@@ -407,6 +448,7 @@ export function apply(ctx: Context, config: Config) {
             else if(args[1] === '晚饭') session.execute('吃什么 查看 ' + args[0] + ' dinner');
             else if(args[1] === '零食') session.execute('吃什么 查看 ' + args[0] + ' snacks');
             else if(args[1] === '饮料') session.execute('吃什么 查看 ' + args[0] + ' drink');
+            else if(args[1] === '夜宵') session.execute('吃什么 查看 ' + args[0] + ' middlenight');
             else return wrongCommandwarning;
         }
         else if(args[0] === '早饭') session.execute('吃什么 查看 breakfast' + (args[1] === undefined? '': ' ' + args[1]));
@@ -414,6 +456,7 @@ export function apply(ctx: Context, config: Config) {
         else if(args[0] === '晚饭') session.execute('吃什么 查看 dinner' + (args[1] === undefined? '': ' ' + args[1]));
         else if(args[0] === '零食') session.execute('吃什么 查看 snacks' + (args[1] === undefined? '': ' ' + args[1]));
         else if(args[0] === '饮料') session.execute('吃什么 查看 drink' + (args[1] === undefined? '': ' ' + args[1]));
+        else if(args[0] === '夜宵') session.execute('吃什么 查看 middlenight' + (args[1] === undefined? '': ' ' + args[1]));
         else return wrongCommandwarning;
     })
 
@@ -435,7 +478,7 @@ export function apply(ctx: Context, config: Config) {
     ctx.command('吃什么.复制').alias('拷贝', 'copy')
     .action(async ({ args, session }) => {
         const uid = session.uid;
-        const wrongCommandwarning = (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 复制 @别人 \n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料 @别人\n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料 菜单名';
+        const wrongCommandwarning = (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 复制 @别人 \n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料/夜宵 @别人\n或\n吃什么 复制 早饭/午饭/晚饭/零食/饮料/夜宵 菜单名';
         if(args.length === 0) {
             return wrongCommandwarning;
         }
@@ -468,6 +511,7 @@ export function apply(ctx: Context, config: Config) {
                 else if( args[1] === '晚饭') session.execute('吃什么 复制 ' + foodType + ' dinner');
                 else if( args[1] === '零食') session.execute('吃什么 复制 ' + foodType + ' snacks');
                 else if( args[1] === '饮料') session.execute('吃什么 复制 ' + foodType + ' drink');
+                else if( args[1] === '夜宵') session.execute('吃什么 复制 ' + foodType + ' middlenight');
                 else return wrongCommandwarning;
             }
         }
@@ -484,6 +528,12 @@ export function apply(ctx: Context, config: Config) {
             else if( foodTypes.includes(args[1] as foodType) ) {
                 session.execute('吃什么 复制 ' + args[1] + ' ' + args[0]);
             }
+            else if( args[1] === '早饭') session.execute('吃什么 复制 breakfast ' + args[0]);
+            else if( args[1] === '午饭') session.execute('吃什么 复制 lunch ' + args[0]);
+            else if( args[1] === '晚饭') session.execute('吃什么 复制 dinner ' + args[0]);
+            else if( args[1] === '零食') session.execute('吃什么 复制 snacks ' + args[0]);
+            else if( args[1] === '饮料') session.execute('吃什么 复制 drink ' + args[0]);
+            else if( args[1] === '夜宵') session.execute('吃什么 复制 middlenight ' + args[0]);
         }
         else return wrongCommandwarning;
     })
@@ -502,6 +552,9 @@ export function apply(ctx: Context, config: Config) {
     })
     ctx.command('吃什么.复制.饮料').alias('.复制喝的', '复制饮料', '饮料复制').action(async ({ args, session }) => {
         session.execute('吃什么 复制 drink ' + args.join(' '));
+    })
+    ctx.command('吃什么.复制.夜宵').alias('.复制宵夜', '复制夜宵', '夜宵复制').action(async ({ args, session }) => {
+        session.execute('吃什么 复制 middlenight ' + args.join(' '));
     })
 
     ctx.command('吃什么.清空').action(async ({ session }, message) => {
@@ -522,5 +575,12 @@ export function apply(ctx: Context, config: Config) {
             await ctx.database.remove('userFoodMenu', { uid, foodType });
             return (config.atTheUser?h.at(session.userId) + ' ': '') + `清空${foodTypeText[foodType].name}菜单成功！`;
         }
+        else if( message === '早饭') session.execute('吃什么 清空 breakfast');
+        else if( message === '午饭') session.execute('吃什么 清空 lunch');
+        else if( message === '晚饭') session.execute('吃什么 清空 dinner');
+        else if( message === '零食') session.execute('吃什么 清空 snacks');
+        else if( message === '饮料') session.execute('吃什么 清空 drink');
+        else if( message === '夜宵') session.execute('吃什么 清空 middlenight');
+        else return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 清空\n或\n吃什么 清空 早饭/午饭/晚饭/零食/饮料/夜宵';
     })
 }
