@@ -181,6 +181,12 @@ export function apply(ctx: Context, config: Config) {
                 item.uid = targetUid;
             })
         }
+
+        transFoodType(targetFoodType: foodType) {
+            this.data.forEach(item => {
+                item.foodType = targetFoodType;
+            })
+        }
         
         //根据权重从菜单中抽取一个
         draw() {
@@ -548,6 +554,7 @@ export function apply(ctx: Context, config: Config) {
                     const confirm = await session.prompt(15000)
                     if(confirm !== '确定') return (config.atTheUser&&!session.event.channel.type?h.at(session.userId) + ' ': '') + '操作取消...';
                     const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType: targetFoodType }));
+                    foodMenu.transFoodType(foodType);
                     await ctx.database.remove('userFoodMenu', { uid, foodType });
                     await ctx.database.upsert('userFoodMenu', foodMenu.data);
                     return (config.atTheUser&&!session.event.channel.type?h.at(session.userId) + ' ': '') + `从${foodTypeText[targetFoodType].name}菜单复制到${foodTypeText[foodType].name}菜单成功！` +
