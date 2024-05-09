@@ -1,5 +1,6 @@
 import { Context, Schema, h } from 'koishi'
 export const inject = {
+    required: ['database'],
     optional: ['cron'],
 }
 
@@ -121,6 +122,7 @@ export function apply(ctx: Context, config: Config) {
             })
         }
     })
+
     class FoodMenu {
         data:Array<UserFoodMenu> = [];
         //添加菜单， 返回值是在原本在菜单上但权重增加的{食物:增加权重}的键值对
@@ -349,9 +351,26 @@ export function apply(ctx: Context, config: Config) {
             if(args.length === 1) {
                 return (config.atTheUser?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 添加 早饭/午饭/晚饭/零食/饮料/夜宵 食物名1 食物名2 ...\n可以在食物名后面加上(数字)表示权重如\n吃什么 添加 早饭 面包(2) 鸡蛋(1)';
             }
+            //用户输入 食物1|食物2|食物3 格式
             if(args.length === 2 && args[1].includes('|') ) {
                 const foodNameArr = args[1].split('|');
                 session.execute('吃什么 添加 ' + args[0] + ' ' + foodNameArr.join(' '));
+                return;
+            }
+            if(args.length === 2 && args[1].includes('，') ) {
+                const foodNameArr = args[1].split('，');
+                session.execute('吃什么 添加 ' + args[0] + ' ' + foodNameArr.join(' '));
+                return;
+            }
+            if(args.length === 2 && args[1].includes(',') ) {
+                const foodNameArr = args[1].split(',');
+                session.execute('吃什么 添加 ' + args[0] + ' ' + foodNameArr.join(' '));
+                return;
+            }
+            if(args.length === 2 && args[1].includes('、') ) {
+                const foodNameArr = args[1].split('、');
+                session.execute('吃什么 添加 ' + args[0] + ' ' + foodNameArr.join(' '));
+                return;
             }
             const uid = session.uid;
             const foodType: foodType = args[0] as foodType;
