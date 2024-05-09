@@ -538,6 +538,13 @@ export function apply(ctx: Context, config: Config) {
                 //吃什么.复制 菜单名 菜单名 时
                 else if( foodTypes.includes(args[1] as foodType) ) {
                     const targetFoodType: foodType = args[1] as foodType;
+                    const targetMenu = await (new FoodMenu()).showSingleMenu(uid, targetFoodType);
+                    session.send(`你确定要从${foodTypeText[targetFoodType].name}菜单复制到${foodTypeText[foodType].name}菜单吗？\n` + 
+                    `你的${foodTypeText[foodType].name}菜单将会被覆盖！\n` + 
+                    `请在15秒内输入“确定”以确认\n` + 
+                    (targetMenu === ''? '你的' + foodTypeText[targetFoodType].name + '菜单是空的，确定要复制吗？': targetMenu) + '\n');
+                    const confirm = await session.prompt(15000)
+                    if(confirm !== '确定') return (config.atTheUser?h.at(session.userId) + ' ': '') + '操作取消...';
                     const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid, foodType: targetFoodType }));
                     await ctx.database.remove('userFoodMenu', { uid, foodType });
                     await ctx.database.upsert('userFoodMenu', foodMenu.data);
@@ -606,7 +613,7 @@ export function apply(ctx: Context, config: Config) {
                 return (config.atTheUser?h.at(session.userId) + ' ': '') + '清空所有菜单成功！';
             }
             else {
-                return((config.atTheUser?h.at(session.userId) + ' ': '') + '没有输入确认，已取消清空');
+                return((config.atTheUser?h.at(session.userId) + ' ': '') + '已取消清空');
             }
         }
         else if( foodTypes.includes(message as foodType) ) {
