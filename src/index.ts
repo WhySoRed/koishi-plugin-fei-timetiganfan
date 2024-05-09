@@ -270,7 +270,7 @@ export function apply(ctx: Context, config: Config) {
                     return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的...\n但是你有晚饭菜单\n用指令\n吃什么.复制.午饭 晚饭\n来复制晚饭菜单到午饭菜单';
                 else if(foodType === 'dinner' && (await ctx.database.get('userFoodMenu', { uid, foodType: 'lunch' })).length !== 0)
                     return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的...\n但是你有午饭菜单\n用指令\n吃什么.复制.晚饭 午饭\n来复制午饭菜单到晚饭菜单';
-                else return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的...\n用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单`;
+                else return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的...\n用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单\n或者你也可以用指令\n吃什么.复制\n来复制菜单...`;
             const foodName = foodMenu.draw();
             if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
             else return (config.atTheUser?h.at(session.userId) + ' ': '') + foodTypeText[foodType].returnText.replace('[food]', foodName);
