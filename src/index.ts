@@ -5,6 +5,7 @@ export const inject = {
 }
 
 import{} from 'koishi-plugin-cron'
+import {} from '@koishijs/plugin-help';
 
 export const name = 'fei-timetoganfan'
 
@@ -174,6 +175,12 @@ export function apply(ctx: Context, config: Config) {
         parseAndAdd(uid: string, foodType: foodType, ...args: string[]) {
             return this.add(this.parse(uid, foodType, ...args));
         }
+
+        transUid(targetUid: string) {
+            this.data.forEach(item => {
+                item.uid = targetUid;
+            })
+        }
         
         //根据权重从菜单中抽取一个
         draw() {
@@ -260,8 +267,10 @@ export function apply(ctx: Context, config: Config) {
                 session.execute('吃什么 breakfast');
             else if(11 <= hour && hour < 16)
                 session.execute('吃什么 lunch');
-            else 
+            else if(16 <= hour && hour < 23)
                 session.execute('吃什么 dinner');
+            else
+                session.execute('吃什么 midnight');
         }
         else if( foodTypes.includes(message as foodType) ) {
             const uid = session.uid;
@@ -272,14 +281,23 @@ export function apply(ctx: Context, config: Config) {
                     return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的午饭菜单是空的...\n但是你有晚饭菜单\n用指令\n吃什么.复制.午饭 晚饭\n来复制晚饭菜单到午饭菜单';
                 else if(foodType === 'dinner' && (await ctx.database.get('userFoodMenu', { uid, foodType: 'lunch' })).length !== 0)
                     return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的晚饭菜单是空的...\n但是你有午饭菜单\n用指令\n吃什么.复制.晚饭 午饭\n来复制午饭菜单到晚饭菜单';
+                else if(foodType === 'middlenight' && (await ctx.database.get('userFoodMenu', { uid, foodType: 'dinner' })).length !== 0)
+                    return (config.atTheUser?h.at(session.userId) + ' ': '') + '你的夜宵菜单是空的...\n但是你有晚饭菜单\n用指令\n吃什么.复制.夜宵 晚饭\n来复制晚饭菜单到夜宵菜单';
                 else return (config.atTheUser?h.at(session.userId) + ' ': '') + `你的${foodTypeText[foodType].name}菜单是空的...\n用指令\n吃什么.添加.${foodTypeText[foodType].name} 食物名1 食物名2 ...\n来添加菜单\n或者你也可以用指令\n吃什么.复制\n来复制菜单...`;
             const foodName = foodMenu.draw();
             if(!foodName) return (config.atTheUser?h.at(session.userId) + ' ': '') + '抽取菜单失败！';
             else return (config.atTheUser?h.at(session.userId) + ' ': '') + foodTypeText[foodType].returnText.replace('[food]', foodName);
         }
     })
+    .usage(`============
+帮我选择吃什么！
+发送
+吃什么 早饭/午饭/晚饭/零食/饮料/夜宵
+来抽取菜单！
+===========`)
+
     //用于注册子指令以及起别名
-    ctx.command('吃什么.早饭').alias('.早餐', '早饭吃什么', '早饭吃啥').action(async ({ args, session }) => {
+    ctx.command('吃什么.早饭', {hidden : true} ).alias('.早餐', '早饭吃什么', '早饭吃啥').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 早饭 ' + args.slice(1).join(' '));
         if( args[0] === '复制' ) 
@@ -289,7 +307,7 @@ export function apply(ctx: Context, config: Config) {
         else 
             session.execute('吃什么 breakfast');
     })
-    ctx.command('吃什么.午饭').alias('.午餐', '午饭吃什么', '午饭吃啥', '吃什么午饭').action(async ({ args, session }) => {
+    ctx.command('吃什么.午饭', {hidden : true} ).alias('.午餐', '午饭吃什么', '午饭吃啥', '吃什么午饭').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 午饭 ' + args.slice(1).join(' '));
         else if( args[0] === '复制' ) 
@@ -299,7 +317,7 @@ export function apply(ctx: Context, config: Config) {
         else 
             session.execute('吃什么 lunch');
     })
-    ctx.command('吃什么.晚饭').alias('.晚餐', '晚饭吃什么', '晚饭吃啥', '吃什么晚饭').action(async ({ args, session }) => {
+    ctx.command('吃什么.晚饭', {hidden : true} ).alias('.晚餐', '晚饭吃什么', '晚饭吃啥', '吃什么晚饭').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 晚饭 ' + args.slice(1).join(' '));
         else if( args[0] === '复制' ) 
@@ -309,7 +327,7 @@ export function apply(ctx: Context, config: Config) {
         else 
             session.execute('吃什么 dinner');
     })
-    ctx.command('吃什么.零食').alias('.零食', '.小吃', '吃什么零食').action(async ({ args, session }) => {
+    ctx.command('吃什么.零食', {hidden : true} ).alias('.零食', '.小吃', '吃什么零食').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 零食 ' + args.slice(1).join(' '));
         if( args[0] === '复制' ) 
@@ -319,7 +337,7 @@ export function apply(ctx: Context, config: Config) {
         else 
             session.execute('吃什么 snacks');
     })
-    ctx.command('吃什么.饮料').alias('.饮料', '喝什么', '喝什么饮料').action(async ({ args, session }) => {
+    ctx.command('吃什么.饮料', {hidden : true} ).alias('.饮料', '喝什么', '喝什么饮料').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 饮料 ' + args.slice(1).join(' '));
         if( args[0] === '复制' ) 
@@ -330,7 +348,7 @@ export function apply(ctx: Context, config: Config) {
             session.execute('吃什么 drink');
     })
 
-    ctx.command('吃什么.夜宵').alias('.宵夜', '夜宵吃什么', '夜宵吃啥', '吃什么夜宵').action(async ({ args, session }) => {
+    ctx.command('吃什么.夜宵', {hidden : true} ).alias('.宵夜', '夜宵吃什么', '夜宵吃啥', '吃什么夜宵').action(async ({ args, session }) => {
         if( args[0] === '添加' ) 
             session.execute('吃什么.添加 夜宵 ' + args.slice(1).join(' '));
         if( args[0] === '复制' ) 
@@ -511,6 +529,7 @@ export function apply(ctx: Context, config: Config) {
                 if(h.select(args[1],'at').length === 1) {
                     const targetUid = session.platform + ':' + h.select(args[1],'at')[0].attrs.id;
                     const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: targetUid, foodType }));
+                    foodMenu.transUid(uid);
                     await ctx.database.remove('userFoodMenu', { uid, foodType });
                     await ctx.database.upsert('userFoodMenu', foodMenu.data);
                     return (config.atTheUser?h.at(session.userId) + ' ': '') + `从 ${args[1]} 复制${foodTypeText[foodType].name}菜单成功！` +
@@ -539,6 +558,7 @@ export function apply(ctx: Context, config: Config) {
             if(args[1] === undefined) {
                 const targetUid = session.platform + ':' + h.select(args[0],'at')[0].attrs.id;
                 const foodMenu = new FoodMenu(await ctx.database.get('userFoodMenu', { uid: targetUid }));
+                foodMenu.transUid(uid);
                 await ctx.database.remove('userFoodMenu', { uid });
                 await ctx.database.upsert('userFoodMenu', foodMenu.data);
                 return (config.atTheUser?h.at(session.userId) + ' ': '') + `从 ${args[0]} 复制菜单成功！` +
