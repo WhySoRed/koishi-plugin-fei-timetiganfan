@@ -159,8 +159,9 @@ export function apply(ctx: Context, config: Config) {
                 return !(/(.+)\((\d+)\)$/.test(foodNameWithWigth) ||
                 /(.+)\((\d+\.\d+)\)$/.test(foodNameWithWigth) ||
                 /(.+)\((\.\d+)\)$/.test(foodNameWithWigth) ||
-                /[^()]/.test(foodNameWithWigth));
-            })) throw new Error('参数格式错误！应为 食物名1(权重) 食物名2(权重) ...\n权重需要放在括号内，可以不写但不能小于0');
+                /[^()]/.test(foodNameWithWigth)) ||
+                /^\(\d+\)$/.test(foodNameWithWigth);
+            })) throw new Error('参数格式错误！应为 食物名1(权重) 食物名2(权重) ...\n权重需要放在括号内并紧挨着食物名称，可以不写但不能小于0');
             else {
                 args.forEach(userInput => {
                     const foodNameWithWigth = userInput.replace('（','(').replace('）',')');
@@ -304,65 +305,47 @@ export function apply(ctx: Context, config: Config) {
 
     //用于注册子指令以及起别名
     ctx.command('吃什么.早饭', {hidden : true} ).alias('.早餐', '早饭吃什么', '早饭吃啥').action(async ({ args, session }) => {
-        if( args[0] === '添加' ) 
-            session.execute('吃什么.添加 早饭 ' + args.slice(1).join(' '));
-        if( args[0] === '复制' ) 
-            session.execute('吃什么.复制 早饭 ' + args.slice(1).join(' '));
-        if( args[0] === '菜单' )
-            session.execute('吃什么.查看 早饭' + args.slice(1).join(' '));
-        else 
-            session.execute('吃什么 breakfast');
+        if( args[0] === '添加' ) session.execute('吃什么.添加 早饭 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) session.execute('吃什么.复制 早饭 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' ) session.execute('吃什么.查看 早饭' + args.slice(1).join(' '));
+        if( args[0] === '清空' ) session.execute('吃什么.清空 早饭' + args.slice(1).join(' '));
+        else session.execute('吃什么 breakfast');
     })
     ctx.command('吃什么.午饭', {hidden : true} ).alias('.午餐', '午饭吃什么', '午饭吃啥', '吃什么午饭').action(async ({ args, session }) => {
-        if( args[0] === '添加' ) 
-            session.execute('吃什么.添加 午饭 ' + args.slice(1).join(' '));
-        else if( args[0] === '复制' ) 
-            session.execute('吃什么.复制 午饭 ' + args.slice(1).join(' '));
-        else if( args[0] === '菜单' )
-            session.execute('吃什么.查看 午饭' + args.slice(1).join(' '));
-        else 
-            session.execute('吃什么 lunch');
+        if( args[0] === '添加' ) session.execute('吃什么.添加 午饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '复制' ) session.execute('吃什么.复制 午饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '菜单' ) session.execute('吃什么.查看 午饭' + args.slice(1).join(' '));
+        else if( args[0] === '清空' ) session.execute('吃什么.清空 午饭' + args.slice(1).join(' '));
+        else session.execute('吃什么 lunch');
     })
     ctx.command('吃什么.晚饭', {hidden : true} ).alias('.晚餐', '晚饭吃什么', '晚饭吃啥', '吃什么晚饭').action(async ({ args, session }) => {
-        if( args[0] === '添加' ) 
-            session.execute('吃什么.添加 晚饭 ' + args.slice(1).join(' '));
-        else if( args[0] === '复制' ) 
-            session.execute('吃什么.复制 晚饭 ' + args.slice(1).join(' '));
-        else if( args[0] === '菜单' )
-            session.execute('吃什么.查看 晚饭' + args.slice(1).join(' '));
-        else 
-            session.execute('吃什么 dinner');
+        if( args[0] === '添加' ) session.execute('吃什么.添加 晚饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '复制' ) session.execute('吃什么.复制 晚饭 ' + args.slice(1).join(' '));
+        else if( args[0] === '菜单' ) session.execute('吃什么.查看 晚饭' + args.slice(1).join(' '));
+        else if( args[0] === '清空' ) session.execute('吃什么.清空 晚饭' + args.slice(1).join(' '));
+        else session.execute('吃什么 dinner');
     })
     ctx.command('吃什么.零食', {hidden : true} ).alias('.零食', '.小吃', '吃什么零食').action(async ({ args, session }) => {
-        if( args[0] === '添加' ) 
-            session.execute('吃什么.添加 零食 ' + args.slice(1).join(' '));
-        if( args[0] === '复制' ) 
-            session.execute('吃什么.复制 零食 ' + args.slice(1).join(' '));
-        if( args[0] === '菜单' )
-            session.execute('吃什么.查看 零食' + args.slice(1).join(' '));
-        else 
-            session.execute('吃什么 snacks');
+        if( args[0] === '添加' ) session.execute('吃什么.添加 零食 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) session.execute('吃什么.复制 零食 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' ) session.execute('吃什么.查看 零食' + args.slice(1).join(' '));
+        if( args[0] === '清空' ) session.execute('吃什么.清空 零食' + args.slice(1).join(' '));
+        else session.execute('吃什么 snacks');
     })
     ctx.command('吃什么.饮料', {hidden : true} ).alias('.饮料', '喝什么', '喝什么饮料').action(async ({ args, session }) => {
-        if( args[0] === '添加' ) 
-            session.execute('吃什么.添加 饮料 ' + args.slice(1).join(' '));
-        if( args[0] === '复制' ) 
-            session.execute('吃什么.复制 饮料 ' + args.slice(1).join(' '));
-        if( args[0] === '菜单' )
-            session.execute('吃什么.查看 饮料' + args.slice(1).join(' '));
-        else 
-            session.execute('吃什么 drink');
+        if( args[0] === '添加' ) session.execute('吃什么.添加 饮料 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) session.execute('吃什么.复制 饮料 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' ) session.execute('吃什么.查看 饮料' + args.slice(1).join(' '));
+        if( args[0] === '清空' ) session.execute('吃什么.清空 饮料' + args.slice(1).join(' '));
+        else session.execute('吃什么 drink');
     })
 
     ctx.command('吃什么.夜宵', {hidden : true} ).alias('.宵夜', '夜宵吃什么', '夜宵吃啥', '吃什么夜宵').action(async ({ args, session }) => {
-        if( args[0] === '添加' ) 
-            session.execute('吃什么.添加 夜宵 ' + args.slice(1).join(' '));
-        if( args[0] === '复制' ) 
-            session.execute('吃什么.复制 夜宵 ' + args.slice(1).join(' '));
-        if( args[0] === '菜单' )
-            session.execute('吃什么.查看 夜宵' + args.slice(1).join(' '));
-        else 
-            session.execute('吃什么 middlenight');
+        if( args[0] === '添加' ) session.execute('吃什么.添加 夜宵 ' + args.slice(1).join(' '));
+        if( args[0] === '复制' ) session.execute('吃什么.复制 夜宵 ' + args.slice(1).join(' '));
+        if( args[0] === '菜单' ) session.execute('吃什么.查看 夜宵' + args.slice(1).join(' '));
+        if( args[0] === '清空' ) session.execute('吃什么.清空 夜宵' + args.slice(1).join(' '));
+        else session.execute('吃什么 middlenight');
     })
 
     
@@ -507,17 +490,44 @@ export function apply(ctx: Context, config: Config) {
     ctx.command('吃什么.删除').alias('.删除').action(async ({ args, session }) => {
         const { uid } = session;
         if(args.length === 0) return (config.atTheUser&&!session.event.channel.type?h.at(session.userId) + ' ': '') + '指令格式：\n吃什么 删除 食物名1 食物名2 ...';
-        let returnMessage = '';
-        args.forEach(async (foodName) => {
-            if( (await ctx.database.get('userFoodMenu', { uid, foodName })).length === 0) {
-                returnMessage += (config.atTheUser&&!session.event.channel.type?h.at(session.userId) + ' ': '') + '你的菜单中没有' + foodName + '，删除失败！\n';
+        let returnMessage = (config.atTheUser&&!session.event.channel.type?h.at(session.userId) + '\n': '')
+        if(foodTypes.includes(args[0] as foodType)) {
+            const foodType: foodType = args[0] as foodType;
+            returnMessage += `从你的${foodTypeText[foodType].name}菜单中删除：`;
+            if(args.length === 1) {
+                await ctx.database.remove('userFoodMenu', { uid, foodType });
+                return (config.atTheUser&&!session.event.channel.type?h.at(session.userId) + ' ': '') + `清空${foodTypeText[foodType].name}菜单成功！`;
             }
             else {
-                await ctx.database.remove('userFoodMenu', { uid , foodName });
-                returnMessage += (config.atTheUser&&!session.event.channel.type?h.at(session.userId) + ' ': '') + '删除' + foodName + '成功！\n';
+                args.slice(1).forEach(async (foodName) => {
+                    if( (await ctx.database.get('userFoodMenu', { uid, foodName })).length === 0) {
+                        returnMessage += `菜单中没有${foodName}，删除失败！\n`;
+                    }
+                    else {
+                        await ctx.database.remove('userFoodMenu', { uid , foodName });
+                        returnMessage += '删除' + foodName + '成功！\n';
+                    }
+                })
+                return returnMessage + `你的${foodTypeText[foodType].name}菜单如下：` + await (new FoodMenu()).showSingleMenu(uid, foodType);
             }
-        })
-        return returnMessage + '你的菜单如下：' + await (new FoodMenu()).showMenu(uid);;
+        }
+        else if( args[1] === '早饭') session.execute('吃什么 删除 breakfast ' + args.slice(2).join(' '));
+        else if( args[1] === '午饭') session.execute('吃什么 删除 lunch ' + args.slice(2).join(' '));
+        else if( args[1] === '晚饭') session.execute('吃什么 删除 dinner ' + args.slice(2).join(' '));
+        else if( args[1] === '零食') session.execute('吃什么 删除 snacks ' + args.slice(2).join(' '));
+        else if( args[1] === '饮料') session.execute('吃什么 删除 drink ' + args.slice(2).join(' '));
+        else {
+            args.forEach(async (foodName) => {
+                if( (await ctx.database.get('userFoodMenu', { uid, foodName })).length === 0) {
+                    returnMessage += '你的菜单中没有' + foodName + '，删除失败！\n';
+                }
+                else {
+                    await ctx.database.remove('userFoodMenu', { uid , foodName });
+                    returnMessage += '删除' + foodName + '成功！\n';
+                }
+            })
+            return returnMessage + '你的菜单如下：' + await (new FoodMenu()).showMenu(uid);
+        }
     })
 
     ctx.command('吃什么.复制').alias('拷贝', 'copy')
