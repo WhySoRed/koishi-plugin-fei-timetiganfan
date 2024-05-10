@@ -220,9 +220,9 @@ export function apply(ctx: Context, config: Config) {
             const foodTypeArr = (await ctx.database.select('userFoodMenu').where({ uid }).groupBy('foodType').execute())
                             .map(item => item.foodType);
             let menuMessage = '';
-            await Promise.all(foodTypeArr.map(async foodType => {
+            for (const foodType of foodTypeArr) {
                 menuMessage += await this.showSingleMenu(uid, foodType);
-            }))
+            }
             return menuMessage;
         }
 
