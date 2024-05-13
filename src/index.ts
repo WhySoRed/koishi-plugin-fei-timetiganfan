@@ -326,14 +326,14 @@ export function apply(ctx: Context, config: Config) {
         else if( args[0] === '清空' ) session.execute('吃什么.清空 晚饭' + args.slice(1).join(' '));
         else session.execute('吃什么 dinner');
     })
-    ctx.command('吃什么.零食', {hidden : true} ).alias('.零食', '.小吃', '吃什么零食').action(async ({ args, session }) => {
+    ctx.command('吃什么.零食', {hidden : true} ).alias('.小吃', '吃什么零食').action(async ({ args, session }) => {
         if( args[0] === '添加' ) session.execute('吃什么.添加 零食 ' + args.slice(1).join(' '));
         if( args[0] === '复制' ) session.execute('吃什么.复制 零食 ' + args.slice(1).join(' '));
         if( args[0] === '菜单' ) session.execute('吃什么.查看 零食' + args.slice(1).join(' '));
         if( args[0] === '清空' ) session.execute('吃什么.清空 零食' + args.slice(1).join(' '));
         else session.execute('吃什么 snacks');
     })
-    ctx.command('吃什么.饮料', {hidden : true} ).alias('.饮料', '喝什么', '喝什么饮料').action(async ({ args, session }) => {
+    ctx.command('吃什么.饮料', {hidden : true} ).alias('喝啥', '喝什么', '喝什么饮料').action(async ({ args, session }) => {
         if( args[0] === '添加' ) session.execute('吃什么.添加 饮料 ' + args.slice(1).join(' '));
         if( args[0] === '复制' ) session.execute('吃什么.复制 饮料 ' + args.slice(1).join(' '));
         if( args[0] === '菜单' ) session.execute('吃什么.查看 饮料' + args.slice(1).join(' '));
